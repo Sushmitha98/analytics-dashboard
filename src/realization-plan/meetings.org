@@ -1,0 +1,48 @@
+#+TITLE: Meetings Doc
+#+AUTHOR: SSAD54
+#+DATE: [2017-09-22 Fri]
+#+SETUPFILE: ./org-templates/level-0.org
+#+TAGS: boilerplate(b)
+#+EXCLUDE_TAGS: boilerplate
+#+OPTIONS: ^:nil
+
+* 2017-08-08 
+** Discussion Points
+   - We were introduced to the project and were given a general overview of what we have to do.
+   - We discussed the timings in which we are free to meet the client in every week.
+   - It was decided that we should first we should read about data visualisation and about languages we need to use for the project.
+   - Start learning about data visualisation by reffering to 'DATAVISUALISATIONZOO'.
+* 2017-09-06 
+
+** Discussion Points
+   -  We discussed uses of our project Data visualization.
+   -  Is it really neccesary for the client(VLEAD).
+   -  Visualize some design of your project .
+* 2017-09-13
+
+** Discussion Points
+  -  We showed our design there were few changes made in the design by the client
+  -  Client showed how to pull request in github.
+  -  We visualized one graph using google charts just to show our design to th client .
+* 2017-09-20 
+
+** Discussion points
+  - Client asked us to do documentation before then coding.
+  - He gave us a pdf to refer for getting clarity what actually project is.
+  - Client told some commands which are helpful to convert whole code into org moded.
+* 2017-10-04 
+
+** Discussion Points
+  - we showed graphs visualized.
+  - client asked us to improve the design. 
+* 2017-10-11 
+
+** Discussion Points
+  - Implementing the routes.
+
+* 2017-10-18
+
+** Discussin Points
+  - How to connect languages and top closed issues.
+
+
