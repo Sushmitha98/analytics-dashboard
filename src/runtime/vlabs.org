@@ -1,0 +1,2576 @@
+#+TITLE: Data Visualisation For Vlead
+#+AUTHOR: VLEAD
+#+DATE: [2017-09-25 Mon]
+#+SETUPFILE: ../../org-templates/level-2.org
+#+TAGS: boilerplate(b)
+#+EXCLUDE_TAGS: boilerplate
+#+OPTIONS: ^:nil
+
+* Introduction
+  This document illustrates Data visualisaton of Vlead.
+
+* Visualisation
+   Goal is to analyze the information about the different repositories of Virtual Labs in Git hub
+** Serve template
+#+NAME: serve_template
+#+BEGIN_SRC python
+tmpl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
+app = Flask(__name__, template_folder=tmpl_dir)
+
+#+END_SRC
+
+** Home page
+*** Implementation
+
+#+NAME: ind
+#+BEGIN_SRC python
+@app.route("/")
+def index():
+    repoData = getReposHistoryData()
+    repoLangData = getRepoLanguageData()
+    return render_template('visualize.html',**locals())
+#+END_SRC
+
+** Languages in used virtual labs
+
+*** Implementation
+
+#+NAME: d3lang
+#+BEGIN_SRC python
+@app.route("/d3lang")
+def d3lang():
+    repoLangDataAsJSON = json.dumps(getRepoLanguageDataAsJSON())
+    print("repoLangDataAsJSON : " , repoLangDataAsJSON)
+    return render_template('d3visualize.html',**locals())
+#+END_SRC
+
+** Creation date of repositories in virtual labs
+
+
+*** Implementation
+
+#+NAME: d3rep
+#+BEGIN_SRC python
+@app.route("/d3repos")
+def d3repos():
+    jsondata = getRepoDataAsJSON()
+    yearsort = sorted(jsondata, key=lambda x: x['year'], reverse=False)
+    repoDataAsJSON = json.dumps(yearsort)
+    return render_template('d3repos.html', **locals())
+#+END_SRC
+
+** commits
+     Total number of commits in each repository of virtual labs
+*** Implementation
+
+#+NAME: comts
+#+BEGIN_SRC python
+@app.route("/commits")
+def commits():
+    repoCommitDevDataAsJSON = json.dumps(commitsort)
+    return render_template('commits.html', **locals())
+#+END_SRC
+
+** issues
+     Total number of issues in each repository of virtual labs
+*** Implementation
+#+NAME: issues
+#+BEGIN_SRC python
+@app.route("/issues")
+def issues():
+    repoIssueDataAsJSON = json.dumps(getRepoIssueDataAsJSON())
+    return render_template('d3issues.html', **locals())
+#+END_SRC
+** closedissues
+   Total number of closed issues in each repository of virtual labs
+*** Implementation
+
+#+NAME: closedissus
+#+BEGIN_SRC python
+@app.route("/closedissues")
+def closedissues():
+    print(closedissuesort)
+    repoClosedIssueDataAsJSON = json.dumps(closedissuesort)
+    return render_template('closedissues.html', **locals())
+#+END_SRC
+
+** developers
+     Total number of developers in each repository of virtual labs
+*** Implementation
+
+#+NAME: develope
+#+BEGIN_SRC python
+@app.route("/developers")
+def developers():
+    print(devsort)
+    repoCommitDevDataAsJSON = json.dumps(devsort)
+    return render_template('developers.html', **locals())
+#+END_SRC
+
+								:boilerplate:
+
+** topcommits
+     Top five repositories of virtual labs in terms of commits
+*** Implementation
+#+NAME:topcommits
+#+BEGIN_SRC python
+@app.route("/topcommits")
+def topcommits():
+    repoTopCommitsAsJSON = json.dumps(commitar)
+    print(repoTopCommitsAsJSON)
+    return render_template('groupcommit.html', **locals())
+#+END_SRC
+** topdevelopers
+     Top five repositories of virtual labs in terms of developers
+*** Implementation
+#+NAME: topdevelopers
+#+BEGIN_SRC python
+@app.route("/topdevelopers")
+def topdevelopers():
+    repoTopDevAsJSON = json.dumps(devar)
+    print(repoTopDevAsJSON)
+    return render_template('groupdev.html', **locals())
+#+END_SRC
+
+** topclosedissues
+     Top five repositories of virtual labs in terms of closed issues
+*** Implementation
+#+NAME: topclosedissues
+#+BEGIN_SRC python
+@app.route("/topclosedissues")
+def topclosedissues():
+    repoTopClosedIssueAsJSON = json.dumps(closedissuear)
+    print(repoTopClosedIssueAsJSON)
+    return render_template('groupclosedissue.html', **locals())
+#+END_SRC
+** runapp
+#+NAME:runapp
+#+BEGIN_SRC python
+if __name__ == "__main__":
+    app.run()
+
+#+END_SRC
+* Views
+** Closedissue
+    Total number of closed issues in all repositories of virtual labs
+*** Implementation
+#+NAME: closedissue
+#+BEGIN_SRC html  :tangle templates/closedissues.html
+
+<!DOCTYPE html>
+
+<meta charset="utf-8">
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+
+<style>
+
+body {
+  font: 10px sans-serif;
+  background-color: cornsilk;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.bar {
+  fill: crimson;
+}
+
+.bar:hover {
+  fill: black;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: black;
+  color: #fff;
+  border-radius: 2px;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: lavenderblush;
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+/* Style northward tooltips differently */
+.d3-tip.n:after {
+  margin: -1px 0 0 0;
+  top: 100%;
+  left: 0;
+}
+</style>
+
+
+<head>
+
+
+
+<script>
+var restOfTheData=function(){
+var data = {{repoClosedIssueDataAsJSON | safe}};
+var margin = {top: 40, right: 20, bottom: 30, left: 40},
+    width = 1350 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var formatPercent = d3.format(".0%");
+
+var x = d3.scale.ordinal()
+    .rangeRoundBands([0, width], .1);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+
+
+var tip = d3.tip()
+  .attr('class', 'd3-tip')
+  .offset([0,500])
+  .html(function(d) {
+    return "<strong>Number of closed issues:</strong> <span style='color:'>" + d.closedIssueCount + "</span><br/><strong>Name:</strong> <span style='color:'>" + d.name + "</span>";
+  })
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+svg.call(tip);
+
+  x.domain(data.map(function(d) { return d.id; }));
+  y.domain([0, d3.max(data, function(d) { return d.closedIssueCount; })]);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis)
+    .append("text")
+      .attr("x", 20)
+      .style("font-size", "15px")
+      .style("text-anchor", "end")
+      .text("RepoID");
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 10)
+      .attr("dy", ".71em")
+      .style("font-size", "10px")
+      .style("text-anchor", "end")
+      .text("Number of closed issues");
+
+  svg.selectAll(".bar")
+      .data(data)
+    .enter()
+    .append("a").attr("link:href",function(d){ return "/topclosedissues"})
+    .append("rect")
+      .attr("class", "bar")
+      .attr("x", function(d) { return x(d.id); })
+      .attr("width", x.rangeBand())
+      .attr("y", function(d) { return y(d.closedIssueCount); })
+      .attr("height", function(d) { return height - y(d.closedIssueCount); })
+      .on('mouseover', tip.show)
+      .on('mouseout', tip.hide)
+
+function type(d) {
+  d.closedIssueCount = +d.closedIssueCount;
+  return d;
+}
+};
+
+</script>
+</head>
+
+<body>
+<h1  align="center">Number of Closed Issues in each Repository</h1>
+<div id="barchart"  style="width: 500px; height: 100px;" ></div>
+    <script>
+        restOfTheData();
+    </script>
+</body>
+</html>
+
+#+END_SRC
+
+** d3visualise
+*** Implementation
+#+NAME: d3visualise
+#+BEGIN_SRC html  :tangle templates/d3visualize.html
+
+<script src="https://d3js.org/d3.v3.min.js"></script>
+
+
+
+<html>
+  <body>
+        <div id="chart"  style="width: 900px; height: 900px;" class="chart-container"></div>
+  </body>
+ <head>
+
+    <script type="text/javascript">//<![CDATA[
+var dataset = {{repoLangDataAsJSON | safe}};
+var pie=d3.layout.pie()
+  .value(function(d){return d.percent})
+  .sort(null)
+  .padAngle(.03);
+
+var w=600,h=600;
+
+var outerRadius=w/4;
+var innerRadius=40;
+
+var color = d3.scale.category10();
+
+var arc=d3.svg.arc()
+  .outerRadius(outerRadius)
+  .innerRadius(innerRadius);
+
+var svg=d3.select("#chart")
+  .append("svg")
+  .attr({
+      width:w,
+      height:h,
+      class:'shadow'
+  }).append('g')
+  .attr({
+      transform:'translate('+w/3+','+h/3+')'
+  });
+
+var path=svg.selectAll('path')
+  .data(pie(dataset))
+  .enter()
+  .append('path')
+  .attr({
+      d:arc,
+      fill:function(d,i){
+          return color(d.data.lang);
+      }
+  });
+
+path.transition()
+  .duration(1000)
+  .attrTween('d', function(d) {
+      var interpolate = d3.interpolate({startAngle: 0, endAngle: 0}, d);
+      return function(t) {
+          return arc(interpolate(t));
+      };
+  });
+
+
+var restOfTheData=function(){
+    var text=svg.selectAll('text')
+        .data(pie(dataset))
+        .enter()
+        .append("text")
+        .transition()
+        .duration(200)
+        .attr("transform", function (d) {
+            return "translate(" + arc.centroid(d) + ")";
+        })
+        .attr("dy", ".4em")
+        .attr("text-anchor", "middle")
+        .text(function(d){
+            return d.data.percent+"%";
+        })
+        .style({
+            fill:'#ffffff',
+
+            'font-size':'10px'
+        });
+
+    var legendRectSize=12;
+    var legendSpacing=12;
+    var legendHeight=legendRectSize+legendSpacing;
+
+
+    var legend=svg.selectAll('.legend')
+        .data(color.domain())
+        .enter()
+        .append('g')
+        .attr({
+            class:'legend',
+            transform:function(d,i){
+                //Just a calculation for x & y position
+                return 'translate(225,' + ((i*legendHeight)-125) + ')';
+            }
+        });
+    legend.append('rect')
+        .attr({
+            width:legendRectSize,
+            height:legendRectSize,
+            rx:20,
+            ry:20
+        })
+        .style({
+            fill:color,
+            stroke:color
+        });
+
+    legend.append('text')
+        .attr({
+            x:30,
+            y:10
+        })
+        .text(function(d){
+            return d;
+        }).style({
+            fill:'#929DAF',
+            'font-size':'10px'
+
+        });
+};
+
+setTimeout(restOfTheData,1000);
+//]]>
+    </script>
+
+
+
+
+</head>
+
+  <style media="screen" type="text/css">
+
+body {
+    background-color: #FFFFFF;
+    width: 100%;
+    font-family: 'Roboto', sans-serif;
+    height: 100%;
+}
+
+
+.widget {
+    margin: 0 auto;
+    width:950px;
+    margin-top:150px;
+    background-color: #222D3A;
+    border-radius: 5px;
+    box-shadow: 0px 0px 1px 0px #06060d;
+
+}
+
+.header{
+    background-color: #29384D;
+    height:40px;
+    color:#929DAF;
+    text-align: center;
+    line-height: 40px;
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+    font-weight: 400;
+    font-size: 1.5em;
+    text-shadow: 1px 1px #06060d;
+}
+
+.chart-container{
+    padding:25px;
+}
+
+.shadow {
+    -webkit-filter: drop-shadow( 0px 3px 3px rgba(0,0,0,.5) );
+    filter: drop-shadow( 0px 3px 3px rgba(0,0,0,.5) );
+}
+
+</style>
+
+</html>
+
+
+#+END_SRC
+
+** Top repositories with respect to commits.
+*** implementation
+#+NAME: groupcommit
+#+BEGIN_SRC html :tangle templates/groupcommit.html
+
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  width: 1300px;
+  height: 900px;
+  position: relative;
+}
+
+svg {
+    width: 100%;
+    height: 100%;
+    position: center;
+}
+
+text{
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.toolTip {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    position: absolute;
+    display: none;
+    width: auto;
+    height: auto;
+    background: none repeat scroll 0 0 white;
+    border: 0 none;
+    border-radius: 8px 8px 8px 8px;
+    box-shadow: -3px 3px 15px #888888;
+    color: black;
+    font: 12px sans-serif;
+    padding: 5px;
+    text-align: center;
+}
+
+.legend {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 60%;
+}
+
+rect {
+    stroke-width: 2;
+}
+
+text {
+  font: 10px sans-serif;
+}
+
+.axis text {
+  font: 10px sans-serif;
+}
+
+.axis path{
+  fill: none;
+  stroke: #000;
+}
+
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.axis .tick line {
+  stroke-width: 1;
+  stroke: rgba(0, 0, 0, 0.2);
+}
+
+.axisHorizontal path{
+  fill: none;
+}
+
+.axisHorizontal line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.axisHorizontal .tick line {
+  stroke-width: 1;
+  stroke: rgba(0, 0, 0, 0.2);
+}
+
+.bar {
+  fill: steelblue;
+  fill-opacity: .9;
+}
+
+.x.axis path {
+  display: none;
+}
+
+</style>
+<head>
+  <h1 align="center">Repositories with highest number of commits</h1>
+</head>
+<body>
+
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+
+var margin = {top: (parseInt(d3.select('body').style('width'), 10)/10), right: (parseInt(d3.select('body').style('width'), 10)/20), bottom: (parseInt(d3.select('body').style('width'), 10)/5), left: (parseInt(d3.select('body').style('width'), 10)/20)},
+    width = parseInt(d3.select('body').style('width'), 10) - margin.left - margin.right,
+    height = parseInt(d3.select('body').style('height'), 10) - margin.top - margin.bottom;
+
+var x0 = d3.scale.ordinal()
+    .rangeRoundBands([0, width], .1);
+
+var x1 = d3.scale.ordinal();
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var colorRange = d3.scale.category20();
+var color = d3.scale.ordinal()
+    .range(colorRange.range());
+
+var xAxis = d3.svg.axis()
+    .scale(x0)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .tickFormat(d3.format(".2s"));
+
+var divTooltip = d3.select("body").append("div").attr("class", "toolTip");
+
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+var dataset = {{repoTopCommitsAsJSON | safe}};
+
+
+var options = d3.keys(dataset[0]).filter(function(key) { return key !== "name"; });
+
+dataset.forEach(function(d) {
+    d.valores = options.map(function(name) { return {name: name, value: +d[name]}; });
+});
+
+x0.domain(dataset.map(function(d) { return d.name; }));
+x1.domain(options).rangeRoundBands([0, x0.rangeBand()]);
+y.domain([0, d3.max(dataset, function(d) { return d3.max(d.valores, function(d) { return d.value; }); })]);
+
+svg.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(0," + height + ")")
+    .call(xAxis);
+
+svg.append("g")
+    .attr("class", "y axis")
+    .call(yAxis)
+    .append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("y", 6)
+    .attr("dy", ".71em")
+    .style("text-anchor", "end")
+    .text("Number");
+
+var bar = svg.selectAll(".bar")
+    .data(dataset)
+    .enter().append("g")
+    .attr("class", "rect")
+    .attr("transform", function(d) { return "translate(" + x0(d.name) + ",0)"; });
+
+bar.selectAll("rect")
+    .data(function(d) { return d.valores; })
+    .enter()
+    .append("a").attr("link:href" , function(d ,i )
+		    {
+
+		    if( d.name == "contributors")
+		    {
+		    return "/developers"
+		    }
+
+
+		    }
+		    )
+    .append("rect")
+    .attr("width", x1.rangeBand())
+    .attr("x", function(d) { return x1(d.name); })
+    .attr("y", function(d) { return y(d.value); })
+    .attr("value", function(d){return d.name;})
+    .attr("height", function(d) { return height - y(d.value); })
+    .style("fill", function(d) { return color(d.name); });
+
+bar
+    .on("mousemove", function(d){
+        divTooltip.style("left", d3.event.pageX+10+"px");
+        divTooltip.style("top", d3.event.pageY-25+"px");
+        divTooltip.style("display", "inline-block");
+        var x = d3.event.pageX, y = d3.event.pageY
+        var elements = document.querySelectorAll(':hover');
+        l = elements.length
+        l = l-1
+        elementData = elements[l].__data__
+        divTooltip.html((d.name)+"<br>"+elementData.name+"<br>"+elementData.value);
+    });
+bar
+    .on("mouseout", function(d){
+        divTooltip.style("display", "none");
+    });
+
+
+var legend = svg.selectAll(".legend")
+    .data(options.slice())
+    .enter().append("g")
+    .attr("class", "legend")
+    .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+legend.append("rect")
+    .attr("x", width - 18)
+    .attr("width", 18)
+    .attr("height", 18)
+    .style("fill", color);
+
+legend.append("text")
+    .attr("x", width - 24)
+    .attr("y", 9)
+    .attr("dy", ".35em")
+    .style("text-anchor", "end")
+    .text(function(d) { return d; });
+
+</script>
+
+</body>
+
+#+END_SRC
+** Total number of repositories in each year and total languages till date
+*** implementation
+#+NAME: visualise
+#+BEGIN_SRC html   :tangle templates/visualize.html
+
+<html>
+ <head>
+  <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+
+
+<script type='text/javascript'>//<![CDATA[
+
+google.load('visualization', '1', {packages: ['corechart', 'bar']});
+google.setOnLoadCallback(drawBasic);
+
+function drawBasic() {
+
+      var data = google.visualization.arrayToDataTable([
+        ['Year', 'Repo Count', { role: 'style' }],
+        ['{{repoData[0][0]}}', {{repoData[0][1]}}, 'gold'],
+        ['{{repoData[1][0]}}', {{repoData[1][1]}}, 'green'],
+        ['{{repoData[2][0]}}', {{repoData[2][1]}}, 'brown'],
+        ['{{repoData[3][0]}}', {{repoData[3][1]}}, 'orange'],
+        ['{{repoData[4][0]}}', {{repoData[4][1]}}, '#e12393'],
+        ['{{repoData[5][0]}}', {{repoData[5][1]}}, 'silver'],
+        ['{{repoData[6][0]}}', {{repoData[6][1]}}, 'red']
+      ]);
+
+
+      var options = {
+        title: 'Virtual-Labs Github Details',
+        chartArea: {width: '50%'},
+        hAxis: {
+          title: '',
+          minValue: 0
+        },
+        vAxis: {
+          title: ''
+        }
+      };
+
+      var chart = new google.visualization.BarChart(document.getElementById('chart_div'));
+
+      chart.draw(data, options);
+    }
+//]]>
+
+</script>
+
+
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+      google.charts.load("current", {packages:["corechart"]});
+      google.charts.setOnLoadCallback(drawChart);
+      function drawChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Language', 'Repository count based on Technology used'],
+          ['{{repoLangData[0][0]}}', {{repoLangData[0][1]}}],
+          ['{{repoLangData[1][0]}}', {{repoLangData[1][1]}}],
+          ['{{repoLangData[2][0]}}', {{repoLangData[2][1]}}],
+          ['{{repoLangData[3][0]}}', {{repoLangData[3][1]}}],
+          ['{{repoLangData[4][0]}}', {{repoLangData[4][1]}}],
+          ['{{repoLangData[5][0]}}', {{repoLangData[5][1]}}],
+          ['{{repoLangData[6][0]}}', {{repoLangData[6][1]}}],
+          ['{{repoLangData[7][0]}}', {{repoLangData[7][1]}}],
+          ['{{repoLangData[8][0]}}', {{repoLangData[8][1]}}],
+          ['{{repoLangData[9][0]}}', {{repoLangData[9][1]}}],
+          ['{{repoLangData[10][0]}}', {{repoLangData[10][1]}}]
+        ]);
+
+        var options = {
+          title: 'Virutual-Labs Repos based on Technology',
+          pieHole: 0.2,
+        };
+
+        var chart = new google.visualization.PieChart(document.getElementById('donutchart'));
+        chart.draw(data, options);
+      }
+    </script>
+
+</head>
+  <body>
+    <div id="chart_div"  style="width: 900px; height: 300px;"></div>
+    <div id="donutchart" style="width: 900px; height: 500px;"></div>
+  </body>
+
+</html>
+#+END_SRC
+** Commits
+      Graph for total number of commits in each repository.
+*** implementation
+#+NAME:commits
+#+BEGIN_SRC html :tangle templates/commits.html
+
+
+<!DOCTYPE html>
+
+<meta charset="utf-8">
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+
+<style>
+
+body {
+  font: 10px sans-serif;
+  background-color: white;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.bar {
+  fill: black;
+}
+
+.bar:hover {
+  fill: indianred;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: black;
+  color: #fff;
+  border-radius: 2px;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: lavenderblush;
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+/* Style northward tooltips differently */
+.d3-tip.n:after {
+  margin: -1px 0 0 0;
+  top: 100%;
+  left: 0;
+}
+</style>
+
+
+<head>
+
+
+
+<script>
+var restOfTheData=function(){
+
+var data = {{repoCommitDevDataAsJSON | safe}};
+var margin = {top: 40, right: 20, bottom: 30, left: 40},
+    width = 1350 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var formatPercent = d3.format(".0%");
+
+var x = d3.scale.ordinal()
+    .rangeRoundBands([0, width], .1);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+
+
+var tip = d3.tip()
+  .attr('class', 'd3-tip')
+  .offset([0,500])
+  .html(function(d) {
+    return "<strong>Number of commits:</strong> <span style='color:'>" + d.numberofcommits + "</span><br/><strong>Name:</strong> <span style='color:'>" + d.name + "</span>";
+  })
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+svg.call(tip);
+
+  x.domain(data.map(function(d) { return d.id; }));
+  y.domain([0, d3.max(data, function(d) { return d.numberofcommits; })]);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis)
+    .append("text")
+      .attr("x", 20)
+      .style("font-size", "15px")
+      .style("text-anchor", "end")
+      .text("RepoID");
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 10)
+      .attr("dy", ".71em")
+      .style("font-size", "10px")
+      .style("text-anchor", "end")
+      .text("Number of commits");
+
+  svg.selectAll(".bar")
+      .data(data)
+    .enter()
+    .append("a").attr("link:href" , function(d) { return "/topcommits"})
+    .append("rect")
+      .attr("class", "bar")
+      .attr("x", function(d) { return x(d.id); })
+      .attr("width", x.rangeBand())
+      .attr("y", function(d) { return y(d.numberofcommits); })
+      .attr("height", function(d) { return height - y(d.numberofcommits); })
+      .on('mouseover', tip.show)
+      .on('mouseout', tip.hide)
+
+function type(d) {
+  d.numberofcommits = +d.numberofcommits;
+  return d;
+}
+};
+
+</script>
+</head>
+
+<body>
+<h1 align="center">Number of commits in each Repository</h1>
+<div id="barchart"  style="width: 500px; height: 100px;" ></div>
+    <script>
+        restOfTheData();
+    </script>
+</body>
+</html>
+#+END_SRC
+** Top repositories with respect to number of developers
+*** implementation
+#+NAME: groupdev
+#+BEGIN_SRC html :tangle templates/groupdev.html
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  width: 1200px;
+  height: 900px;
+  position: relative;
+}
+
+svg {
+    width: 100%;
+    height: 100%;
+    position: center;
+}
+
+text{
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.toolTip {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    position: absolute;
+    display: none;
+    width: auto;
+    height: auto;
+    background: none repeat scroll 0 0 white;
+    border: 0 none;
+    border-radius: 8px 8px 8px 8px;
+    box-shadow: -3px 3px 15px #888888;
+    color: black;
+    font: 12px sans-serif;
+    padding: 5px;
+    text-align: center;
+}
+
+.legend {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 60%;
+}
+
+rect {
+    stroke-width: 2;
+}
+
+text {
+  font: 10px sans-serif;
+}
+
+.axis text {
+  font: 10px sans-serif;
+}
+
+.axis path{
+  fill: none;
+  stroke: #000;
+}
+
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.axis .tick line {
+  stroke-width: 1;
+  stroke: rgba(0, 0, 0, 0.2);
+}
+
+.axisHorizontal path{
+  fill: none;
+}
+
+.axisHorizontal line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.axisHorizontal .tick line {
+  stroke-width: 1;
+  stroke: rgba(0, 0, 0, 0.2);
+}
+
+.bar {
+  fill: steelblue;
+  fill-opacity: .9;
+}
+
+.x.axis path {
+  display: none;
+}
+
+</style>
+<head>
+  <h1 align="center">Repositories with highest number of developers</h1>
+</head>
+<body>
+
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+
+var margin = {top: (parseInt(d3.select('body').style('width'), 10)/10), right: (parseInt(d3.select('body').style('width'), 10)/20), bottom: (parseInt(d3.select('body').style('width'), 10)/5), left: (parseInt(d3.select('body').style('width'), 10)/20)},
+    width = parseInt(d3.select('body').style('width'), 10) - margin.left - margin.right,
+    height = parseInt(d3.select('body').style('height'), 10) - margin.top - margin.bottom;
+
+var x0 = d3.scale.ordinal()
+    .rangeRoundBands([0, width], .1);
+
+var x1 = d3.scale.ordinal();
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var colorRange = d3.scale.category20();
+var color = d3.scale.ordinal()
+    .range(colorRange.range());
+
+var xAxis = d3.svg.axis()
+    .scale(x0)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .tickFormat(d3.format(".2s"));
+
+var divTooltip = d3.select("body").append("div").attr("class", "toolTip");
+
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+var dataset = {{repoTopDevAsJSON | safe}};
+
+
+var options = d3.keys(dataset[0]).filter(function(key) { return key !== "name"; });
+
+dataset.forEach(function(d) {
+    d.valores = options.map(function(name) { return {name: name, value: +d[name]}; });
+});
+
+x0.domain(dataset.map(function(d) { return d.name; }));
+x1.domain(options).rangeRoundBands([0, x0.rangeBand()]);
+y.domain([0, d3.max(dataset, function(d) { return d3.max(d.valores, function(d) { return d.value; }); })]);
+
+svg.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(0," + height + ")")
+    .call(xAxis);
+
+svg.append("g")
+    .attr("class", "y axis")
+    .call(yAxis)
+    .append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("y", 6)
+    .attr("dy", ".71em")
+    .style("text-anchor", "end")
+    .text("Number");
+
+var bar = svg.selectAll(".bar")
+    .data(dataset)
+    .enter().append("g")
+    .attr("class", "rect")
+    .attr("transform", function(d) { return "translate(" + x0(d.name) + ",0)"; });
+
+bar.selectAll("rect")
+    .data(function(d) { return d.valores; })
+    .enter()
+    .append("a").attr("link:href" , function(d , i) {
+		    if(d.name == "closedIssueCount")
+		    {
+		    return "/topclosedissues"
+		    }
+
+		    })
+    .append("rect")
+    .attr("width", x1.rangeBand())
+    .attr("x", function(d) { return x1(d.name); })
+    .attr("y", function(d) { return y(d.value); })
+    .attr("value", function(d){return d.name;})
+    .attr("height", function(d) { return height - y(d.value); })
+    .style("fill", function(d) { return color(d.name); });
+
+bar
+    .on("mousemove", function(d){
+        divTooltip.style("left", d3.event.pageX+10+"px");
+        divTooltip.style("top", d3.event.pageY-25+"px");
+        divTooltip.style("display", "inline-block");
+        var x = d3.event.pageX, y = d3.event.pageY
+        var elements = document.querySelectorAll(':hover');
+        l = elements.length
+        l = l-1
+        elementData = elements[l].__data__
+        divTooltip.html((d.name)+"<br>"+elementData.name+"<br>"+elementData.value);
+    });
+bar
+    .on("mouseout", function(d){
+        divTooltip.style("display", "none");
+    });
+
+
+var legend = svg.selectAll(".legend")
+    .data(options.slice())
+    .enter().append("g")
+    .attr("class", "legend")
+    .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+legend.append("rect")
+    .attr("x", width - 18)
+    .attr("width", 18)
+    .attr("height", 18)
+    .style("fill", color);
+
+legend.append("text")
+    .attr("x", width - 24)
+    .attr("y", 9)
+    .attr("dy", ".35em")
+    .style("text-anchor", "end")
+    .text(function(d) { return d; });
+
+</script>
+
+</body>
+#+END_SRC
+** Total number of issues in each repository
+*** implementation
+#+NAME: d3issues
+#+BEGIN_SRC html :tangle templates/d3issues.html
+
+
+<!DOCTYPE html>
+
+<meta charset="utf-8">
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+
+<style>
+
+body {
+  font: 10px sans-serif;
+  background-color: bisque;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.bar {
+  fill: darkblue;
+}
+
+.bar:hover {
+  fill: indianred;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: indigo;
+  color: #fff;
+  border-radius: 2px;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: lavenderblush;
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+/* Style northward tooltips differently */
+.d3-tip.n:after {
+  margin: -1px 0 0 0;
+  top: 100%;
+  left: 0;
+}
+</style>
+
+
+<head>
+
+
+
+<script>
+var restOfTheData=function(){
+var data = {{repoIssueDataAsJSON | safe}};
+var margin = {top: 40, right: 20, bottom: 30, left: 40},
+    width = 1350 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var formatPercent = d3.format(".0%");
+
+var x = d3.scale.ordinal()
+    .rangeRoundBands([0, width], .1);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+
+
+var tip = d3.tip()
+  .attr('class', 'd3-tip')
+  .offset([0,500])
+  .html(function(d) {
+    return "<strong>Number of issues:</strong> <span style='color:'>" + d.numberofissues + "</span><br/><strong>Name:</strong> <span style='color:'>" + d.reponame + "</span>";
+  })
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+svg.call(tip);
+
+  x.domain(data.map(function(d) { return d.name; }));
+  y.domain([0, d3.max(data, function(d) { return d.numberofissues; })]);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis)
+    .append("text")
+      .attr("x", 20)
+      .style("font-size", "15px")
+      .style("text-anchor", "end")
+      .text("RepoID");
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 10)
+      .attr("dy", ".71em")
+      .style("font-size", "10px")
+      .style("text-anchor", "end")
+      .text("Number of issues");
+
+  svg.selectAll(".bar")
+      .data(data)
+    .enter()
+    .append("a").attr("xlink:href",function(d){ return "/closedissues"})
+    .append("rect")
+      .attr("class", "bar")
+      .attr("x", function(d) { return x(d.name); })
+      .attr("width", x.rangeBand())
+      .attr("y", function(d) { return y(d.numberofissues); })
+      .attr("height", function(d) { return height - y(d.numberofissues); })
+      .on('mouseover', tip.show)
+      .on('mouseout', tip.hide)
+
+function type(d) {
+  d.numberofissues = +d.numberofissues;
+  return d;
+}
+};
+
+</script>
+</head>
+
+<body>
+<h1><center>Number of issues in each Repository</center></h1>
+<div id="barchart"  style="width: 500px; height: 100px;" ></div>
+    <script>
+        restOfTheData();
+    </script>
+</body>
+</html>
+#+END_SRC
+** Total number of developers in each repository
+*** implementation
+#+NAME: developers
+#+BEGIN_SRC html :tangle templates/developers.html
+
+
+<!DOCTYPE html>
+
+<meta charset="utf-8">
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+
+<style>
+
+body {
+  font: 10px sans-serif;
+  background-color: white;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.bar {
+  fill: slateblue;
+}
+
+.bar:hover {
+  fill: indianred;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: indigo;
+  color: #fff;
+  border-radius: 2px;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: lavenderblush;
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+/* Style northward tooltips differently */
+.d3-tip.n:after {
+  margin: -1px 0 0 0;
+  top: 100%;
+  left: 0;
+}
+</style>
+
+
+<head>
+
+
+
+<script>
+var restOfTheData=function(){
+var data = {{repoCommitDevDataAsJSON | safe}};
+var margin = {top: 40, right: 20, bottom: 30, left: 40},
+    width = 1350 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var formatPercent = d3.format(".0%");
+
+var x = d3.scale.ordinal()
+    .rangeRoundBands([0, width], .1);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+
+
+var tip = d3.tip()
+  .attr('class', 'd3-tip')
+  .offset([0,500])
+  .html(function(d) {
+    return "<strong>Number of developers:</strong> <span style='color:'>" + d.contributors + "</span><br/><strong>Name:</strong> <span style='color:'>" + d.name + "</span>";
+  })
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+svg.call(tip);
+
+  x.domain(data.map(function(d) { return d.id; }));
+  y.domain([0, d3.max(data, function(d) { return d.contributors; })]);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis)
+    .append("text")
+      .attr("x", 20)
+      .style("font-size", "15px")
+      .style("text-anchor", "end")
+      .text("RepoID");
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 10)
+      .attr("dy", ".71em")
+      .style("font-size", "10px")
+      .style("text-anchor", "end")
+      .text("Number of developers");
+
+  svg.selectAll(".bar")
+      .data(data)
+    .enter()
+    .append("a").attr("link:href" , function(d) { return "/topdevelopers"})
+
+    .append("rect")
+      .attr("class", "bar")
+      .attr("x", function(d) { return x(d.id); })
+      .attr("width", x.rangeBand())
+      .attr("y", function(d) { return y(d.contributors); })
+      .attr("height", function(d) { return height - y(d.contributors); })
+      .on('mouseover', tip.show)
+      .on('mouseout', tip.hide)
+
+function type(d) {
+  d.contributors = +d.contributors;
+  return d;
+}
+};
+
+</script>
+</head>
+
+<body>
+<h1 align="center">Number of developers in each Repository</h1>
+<div id="barchart"  style="width: 500px; height: 100px;" ></div>
+    <script>
+        restOfTheData();
+    </script>
+</body>
+</html>
+#+END_SRC
+
+** Total number of repositories in each year.
+*** implementation
+#+NAME: d3repos
+#+BEGIN_SRC html :tangle templates/d3repos.html
+
+
+<!DOCTYPE html>
+
+<meta charset="utf-8">
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+
+<style>
+
+body {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.bar {
+  fill: orange;
+}
+
+.bar:hover {
+  fill: orangered ;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.d3-tip {
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 2px;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.8);
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+/* Style northward tooltips differently */
+.d3-tip.n:after {
+  margin: -1px 0 0 0;
+  top: 100%;
+  left: 0;
+}
+</style>
+
+
+<head>
+
+
+
+<script>
+var restOfTheData=function(){
+
+var data = {{repoDataAsJSON | safe}};
+var margin = {top: 40, right: 20, bottom: 30, left: 40},
+    width = 500 - margin.left - margin.right,
+    height = 700 - margin.top - margin.bottom;
+
+var formatPercent = d3.format(".0%");
+
+var x = d3.scale.ordinal()
+    .rangeRoundBands([0, width], .1);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+
+
+var tip = d3.tip()
+  .attr('class', 'd3-tip')
+  .offset([0,500])
+  .html(function(d) {
+    return "<strong>Number of Repositories:</strong> <span style='color:red'>" + d.numberofrepos + "</span>";
+  })
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+svg.call(tip);
+
+  x.domain(data.map(function(d) { return d.year; }));
+  y.domain([0, d3.max(data, function(d) { return d.numberofrepos; })]);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis)
+    .append("text")
+      .attr("x", 4)
+      .style("font-size", "20px")
+      .style("text-anchor", "end")
+      .text("Year");
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("font-size", "10px")
+      .style("text-anchor", "end")
+      .text("Number of repositories");
+
+  svg.selectAll(".bar")
+      .data(data)
+    .enter()
+    	.append("a")
+    		.attr("xlink:href", function(d) {return "/d3lang"})
+    .append("rect")
+      .attr("class", "bar")
+      .attr("x", function(d) { return x(d.year); })
+      .attr("width", x.rangeBand())
+      .attr("y", function(d) { return y(d.numberofrepos); })
+      .attr("height", function(d) { return height - y(d.numberofrepos); })
+      .on('mouseover', tip.show)
+      .on('mouseout', tip.hide)
+
+function type(d) {
+  d.numberofrepos = +d.numberofrepos;
+  return d;
+}
+};
+
+</script>
+</head>
+
+<body>
+<h1  align="center">Number of repositories in each year</h1>
+<div id="barchart"  style="width: 100px; height: 100px;" ></div>
+    <script>
+        restOfTheData();
+    </script>
+</body>
+</html>
+#+END_SRC
+** Graph of top five repositories with respect to closed issues
+*** implementation
+#+NAME: groupclosedissue
+#+BEGIN_SRC html :tangle templates/groupclosedissue.html
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+width: 1200px;
+height: 900px;
+position: relative;
+}
+
+svg {
+width: 100%;
+height: 100%;
+position: center;
+}
+
+text{
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.toolTip {
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+position: absolute;
+display: none;
+width: auto;
+height: auto;
+background: none repeat scroll 0 0 white;
+border: 0 none;
+	border-radius: 8px 8px 8px 8px;
+	box-shadow: -3px 3px 15px #888888;
+color: black;
+font: 12px sans-serif;
+padding: 5px;
+	 text-align: center;
+}
+
+.legend {
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+	font-size: 60%;
+}
+
+rect {
+	stroke-width: 2;
+}
+
+text {
+font: 10px sans-serif;
+}
+
+.axis text {
+font: 10px sans-serif;
+}
+
+.axis path{
+fill: none;
+stroke: #000;
+}
+
+.axis line {
+fill: none;
+stroke: #000;
+	shape-rendering: crispEdges;
+}
+
+.axis .tick line {
+	stroke-width: 1;
+stroke: rgba(0, 0, 0, 0.2);
+}
+
+.axisHorizontal path{
+fill: none;
+}
+
+.axisHorizontal line {
+fill: none;
+stroke: #000;
+	shape-rendering: crispEdges;
+}
+
+.axisHorizontal .tick line {
+	stroke-width: 1;
+stroke: rgba(0, 0, 0, 0.2);
+}
+
+.bar {
+fill: steelblue;
+      fill-opacity: .9;
+}
+
+.x.axis path {
+display: none;
+}
+
+</style>
+<head>
+<h1 align="center">Repositories with highest number of closed issues</h1>
+</head>
+<body>
+
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+
+var margin = {top: (parseInt(d3.select('body').style('width'), 10)/10), right: (parseInt(d3.select('body').style('width'), 10)/20), bottom: (parseInt(d3.select('body').style('width'), 10)/5), left: (parseInt(d3.select('body').style('width'), 10)/20)},
+    width = parseInt(d3.select('body').style('width'), 10) - margin.left - margin.right,
+    height = parseInt(d3.select('body').style('height'), 10) - margin.top - margin.bottom;
+
+var x0 = d3.scale.ordinal()
+	.rangeRoundBands([0, width], .1);
+
+	var x1 = d3.scale.ordinal();
+
+var y = d3.scale.linear()
+	.range([height, 0]);
+
+	var colorRange = d3.scale.category20();
+var color = d3.scale.ordinal()
+	.range(colorRange.range());
+
+	var xAxis = d3.svg.axis()
+.scale(x0)
+	.orient("bottom");
+
+	var yAxis = d3.svg.axis()
+.scale(y)
+	.orient("left")
+	.tickFormat(d3.format(".2s"));
+
+	var divTooltip = d3.select("body").append("div").attr("class", "toolTip");
+
+
+	var svg = d3.select("body").append("svg")
+	.attr("width", width + margin.left + margin.right)
+	.attr("height", height + margin.top + margin.bottom)
+	.append("g")
+	.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+	var dataset = {{repoTopClosedIssueAsJSON | safe}};
+
+
+var options = d3.keys(dataset[0]).filter(function(key) { return key !== "name"; });
+
+dataset.forEach(function(d) {
+		d.valores = options.map(function(name) { return {name: name, value: +d[name]}; });
+		});
+
+x0.domain(dataset.map(function(d) { return d.name; }));
+x1.domain(options).rangeRoundBands([0, x0.rangeBand()]);
+y.domain([0, d3.max(dataset, function(d) { return d3.max(d.valores, function(d) { return d.value; }); })]);
+
+svg.append("g")
+.attr("class", "x axis")
+.attr("transform", "translate(0," + height + ")")
+.call(xAxis);
+
+svg.append("g")
+	.attr("class", "y axis")
+.call(yAxis)
+	.append("text")
+	.attr("transform", "rotate(-90)")
+	.attr("y", 6)
+	.attr("dy", ".71em")
+	.style("text-anchor", "end")
+	.text("Number");
+
+	var bar = svg.selectAll(".bar")
+			.data(dataset)
+		.enter().append("g")
+		.attr("class", "rect")
+		.attr("transform", function(d) { return "translate(" + x0(d.name) + ",0)"; });
+
+	var ppc = bar.selectAll("rect")
+	.data(function(d) { return d.valores; })
+	.enter().append("a").attr("xlink:href" , function(d ,i) {
+
+	if(d.name == "closedIssueCount")
+	{
+	return "/issues"
+	}
+	if(d.name == "numberofcommits")
+	{
+	return "/commits"
+	}
+
+	})
+	.append("rect")
+		.attr("width", x1.rangeBand())
+	.attr("x", function(d) { return x1(d.name); })
+	.attr("y", function(d) { return y(d.value); })
+	.attr("value", function(d){return d.name;})
+	.attr("height", function(d) { return height - y(d.value); })
+	.style("fill", function(d) { return color(d.name); });
+
+
+
+
+
+bar
+.on("mousemove", function(d){
+		divTooltip.style("left", d3.event.pageX+10+"px");
+		divTooltip.style("top", d3.event.pageY-25+"px");
+		divTooltip.style("display", "inline-block");
+		var x = d3.event.pageX, y = d3.event.pageY
+		var elements = document.querySelectorAll(':hover');
+		l = elements.length
+		l = l-1
+		elementData = elements[l].__data__
+		divTooltip.html((d.name)+"<br>"+elementData.name+"<br>"+elementData.value);
+		});
+bar
+.on("mouseout", function(d){
+		divTooltip.style("display", "none");
+		});
+
+
+	var legend = svg.selectAll(".legend")
+.data(options.slice())
+	.enter().append("g")
+	.attr("class", "legend")
+	.attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+	legend.append("rect")
+	.attr("x", width - 18)
+	.attr("width", 18)
+	.attr("height", 18)
+	.style("fill", color);
+
+	legend.append("text")
+	.attr("x", width - 24)
+	.attr("y", 9)
+	.attr("dy", ".35em")
+	.style("text-anchor", "end")
+	.text(function(d) { return d; });
+
+	</script>
+	</body>
+#+END_SRC
+** Graph for languages in virtual lab repositories.
+*** implementation
+#+NAME: d3visual
+#+BEGIN_SRC html :tangle temp/d3visualize.html
+
+<script src="https://d3js.org/d3.v3.min.js"></script>
+
+
+
+<html>
+  <body>
+
+      <!--<div class="widget">
+        <div class="header">Browser Market Share</div>
+        <div id="chart" class="chart-container"></div>
+      </div>-->
+        <div id="chart"  style="width: 900px; height: 900px;" class="chart-container"></div>
+
+  </body>
+ <head>
+
+
+    <script type="text/javascript">//<![CDATA[
+
+
+var dataset = {{repoLangDataAsJSON | safe}};
+//alert("dataset : " + dataset);
+
+
+var pie=d3.layout.pie()
+  .value(function(d){return d.percent})
+  .sort(null)
+  .padAngle(.03);
+
+var w=600,h=600;
+
+var outerRadius=w/4;
+var innerRadius=40;
+
+var color = d3.scale.category10();
+
+var arc=d3.svg.arc()
+  .outerRadius(outerRadius)
+  .innerRadius(innerRadius);
+
+var svg=d3.select("#chart")
+  .append("svg")
+  .attr({
+      width:w,
+      height:h,
+      class:'shadow'
+  }).append('g')
+  .attr({
+      transform:'translate('+w/3+','+h/3+')'
+  });
+
+var path=svg.selectAll('path')
+  .data(pie(dataset))
+  .enter()
+  .append('path')
+  .attr({
+      d:arc,
+      fill:function(d,i){
+          return color(d.data.lang);
+      }
+  });
+
+path.transition()
+  .duration(1000)
+  .attrTween('d', function(d) {
+      var interpolate = d3.interpolate({startAngle: 0, endAngle: 0}, d);
+      return function(t) {
+          return arc(interpolate(t));
+      };
+  });
+
+
+var restOfTheData=function(){
+    var text=svg.selectAll('text')
+        .data(pie(dataset))
+        .enter()
+        .append("text")
+        .transition()
+        .duration(200)
+        .attr("transform", function (d) {
+            return "translate(" + arc.centroid(d) + ")";
+        })
+        .attr("dy", ".4em")
+        .attr("text-anchor", "middle")
+        .text(function(d){
+            return d.data.percent+"%";
+        })
+        .style({
+            fill:'#ffffff',
+
+            'font-size':'10px'
+        });
+
+    var legendRectSize=12;
+    var legendSpacing=12;
+    var legendHeight=legendRectSize+legendSpacing;
+
+
+    var legend=svg.selectAll('.legend')
+        .data(color.domain())
+        .enter()
+        .append('g')
+        .attr({
+            class:'legend',
+            transform:function(d,i){
+                //Just a calculation for x & y position
+                return 'translate(225,' + ((i*legendHeight)-125) + ')';
+            }
+        });
+    legend.append('rect')
+        .attr({
+            width:legendRectSize,
+            height:legendRectSize,
+            rx:20,
+            ry:20
+        })
+        .style({
+            fill:color,
+            stroke:color
+        });
+
+    legend.append('text')
+        .attr({
+            x:30,
+            y:10
+        })
+        .text(function(d){
+            return d;
+        }).style({
+            fill:'#929DAF',
+            /*fill:'#000000',*/
+            'font-size':'10px'
+
+        });
+};
+
+setTimeout(restOfTheData,1000);
+//]]>
+    </script>
+
+
+
+
+</head>
+
+  <style media="screen" type="text/css">
+
+body {
+    background-color: #FFFFFF;
+    width: 100%;
+    font-family: 'Roboto', sans-serif;
+    height: 100%;
+}
+
+
+.widget {
+    margin: 0 auto;
+    width:950px;
+    margin-top:150px;
+    background-color: #222D3A;
+    border-radius: 5px;
+    box-shadow: 0px 0px 1px 0px #06060d;
+
+}
+
+.header{
+    background-color: #29384D;
+    height:40px;
+    color:#929DAF;
+    text-align: center;
+    line-height: 40px;
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+    font-weight: 400;
+    font-size: 1.5em;
+    text-shadow: 1px 1px #06060d;
+}
+
+.chart-container{
+    padding:25px;
+}
+
+.shadow {
+    -webkit-filter: drop-shadow( 0px 3px 3px rgba(0,0,0,.5) );
+    filter: drop-shadow( 0px 3px 3px rgba(0,0,0,.5) );
+}
+
+</style>
+
+</html>
+#+END_SRC
+
+
+* Getting the data from Git API
+** Authenticate
+*** Implementation
+#+NAME:authenticate
+#+BEGIN_SRC python
+uname = "python-user"
+passwd = "python123"
+#+END_SRC
+** Getdata
+     Retrieving the data from the specific link (git API)
+*** Implementation
+#+NAME:getdata
+#+BEGIN_SRC python
+def getdata():
+    auth=HTTPBasicAuth('python-user', 'python123')
+    url = 'https://api.github.com/orgs/virtual-labs/repos?page=1&per_page=100&sort=name&direction=asc'
+    url2 = 'https://api.github.com/orgs/virtual-labs/repos?page=2&per_page=100&sort=name&direction=asc'
+    response = requests.get(url, auth)
+    response1 = requests.get(url2, auth)
+    data = json.loads(response.text)
+    data += json.loads(response1.text)
+    return data
+#+END_SRC
+** Get the year when Repository was created
+*** implementation
+#+NAME:getyearofRepo
+#+BEGIN_SRC python
+def getYearofRepo(item):
+    localDatetime = time.strptime(item['created_at'], '%Y-%m-%dT%H:%M:%SZ') #refer https://www.tutorialspoint.com/python/time_strptime.htm
+    #print(localDatetime)
+    localYear = localDatetime.tm_year
+    intlocalyear = int(localYear)
+    return intlocalyear
+
+#+END_SRC
+** Getting the current year
+*** implementation
+#+NAME:getcurryear
+#+BEGIN_SRC python
+def getCurYear():
+    currYear = time.strftime("%Y")
+    intcuryear = int(currYear)
+    return intcuryear
+#+END_SRC
+** Make array
+     Storing data in array (repeatedly used in other functions)
+*** implementation
+#+NAME:makearray
+#+BEGIN_SRC python
+
+def make2darray(dict):
+    repoData1 = []
+    j=0
+    for rdItem in dict:
+        repoData1.append([])
+        repoData1[j].append(rdItem)
+        repoData1[j].append(dict[rdItem])
+        j += 1
+    return repoData1
+#+END_SRC
+** Get data related to date when repository was created
+*** implementation
+#+NAME: getrepohistory
+#+BEGIN_SRC python
+
+def getReposHistoryData():
+    repoData1 = []
+    intcuryear = getCurYear()
+    dict = {}
+    t=0
+    for _ in range (0, 7): #get 7 years backwards from now
+        year = intcuryear - t
+        dict[str(year)]=0
+        t += 1
+    data = getdata()
+    for item in data:
+        #2014-09-16T11:17:01Z
+        intlocalyear = getYearofRepo(item)
+        for _ in range (intlocalyear, intcuryear+1):
+            dict[str(_)] += 1
+    print(dict)
+
+    repoData1 = make2darray(dict)
+    print("repoData : ", repoData1)
+    return repoData1
+#+END_SRC
+** Get data related to languages used in repositories
+*** Implementation
+#+NAME:getrepolang
+#+BEGIN_SRC python
+def getRepoLanguageData():
+    repoLangData1 = []
+    dict = {}
+    data = getdata()
+    for item in data:
+        if item['language'] is None:
+            checkItem = 'NULL'
+        else:
+            checkItem = item['language']
+        if checkItem in dict.keys():
+            dict[checkItem] += 1
+        else:
+            dict[checkItem] = 1
+    repoLangData1 = make2darray(dict)
+    print("repoLangData : ", repoLangData1)
+    return repoLangData1
+#+END_SRC
+** Getting data related to all languages used in repositories as JSON object
+*** implementation
+#+NAME: getrepolangasjson
+#+BEGIN_SRC python
+def getRepoLanguageDataAsJSON():
+    repoLangData2 = []
+    dict = {}
+    data = getdata()
+    for item in data:
+        intlocalyear = getYearofRepo(item)
+        currYear = getCurYear()
+        if intlocalyear <= currYear: #considering all repositories
+            if item['language'] is None:
+                checkItem = 'No language mentioned'
+            else:
+                checkItem = item['language']
+            if checkItem in dict.keys():
+                dict[checkItem] += 1
+            else:
+                dict[checkItem] = 1
+    j=0
+    print("dictionary : ", dict)
+    totalRepos = 0
+    for rdItem in dict:#total number of languages in all repos
+        totalRepos += dict[rdItem]
+    for rdItem in dict:
+        print(rdItem)
+        jdata = {
+                   'lang' : rdItem,
+                   'percent' : round(100*dict[rdItem]/totalRepos, 1)
+                }
+        json_str = json.dumps(jdata)
+        repoLangData2.insert(j, json.loads(json_str))
+	#insert into array at position j the object
+        j += 1
+    #repoLangData2 = json.dumps(repoLangData2)
+    print("repoLangDataxxx : ", repoLangData2)
+    return repoLangData2
+#+END_SRC
+
+** Getting the data related to date when repository was created as JSON
+*** Implementation
+#+NAME: getrepodataasjson
+#+BEGIN_SRC python
+def getRepoDataAsJSON():
+    repoData2 = []
+
+    currYear = getCurYear()
+    dict = {}
+    t = 0
+    for _ in range(0, 4):  # get 7 years backwards from now
+        year = currYear - t
+        dict[str(year)] = 0
+        t += 1
+
+    data = getdata()  # has all the data to be visualized
+
+    for item in data:
+        # 2014-09-16T11:17:01Z
+
+        intlocalyear = getYearofRepo(item)
+
+        for _ in range(intlocalyear, currYear + 1):
+            dict[str(_)] += 1
+
+    print(dict)
+    j = 0
+
+    for rdItem in dict:
+        print(rdItem)
+        jdata = {
+            'year': rdItem,
+            'numberofrepos': dict[rdItem]
+        }
+        json_str = json.dumps(jdata)
+        repoData2.insert(j, json.loads(json_str))
+        # insert into array at position j the object
+        j += 1
+
+    # repoLangData2 = json.dumps(repoLangData2)
+
+    print("repoData : ", repoData2)
+    return repoData2  # creates [[,],[,]]
+#+END_SRC
+**  Getting data related to number of commits, developers and closed issues in each repository.
+*** implementation
+#+NAME: getrepocommitdevissuedataasjson
+#+BEGIN_SRC python
+def getRepoCommitDevCIssueDataAsJSON():
+    repoCommitDevCIssueData = []
+    dict = {}
+
+    data = getdata()
+    auth=HTTPBasicAuth('python-user', 'python123')
+    url = 'https://api.github.com/orgs/virtual-labs/repos?page=1&per_page=100&sort=name&direction=asc'
+    url2 = 'https://api.github.com/orgs/virtual-labs/repos?page=2&per_page=100&sort=name&direction=asc'
+    response = requests.get(url, auth)
+    response1 = requests.get(url2, auth)
+    #data = json.loads(response.text)
+    #data = json.loads(response1.text)
+    j=0
+    token = '4c292af2b0ef1b59f5504c3462a33effc5cf6aef'
+    headers = {'Authorization': 'token %s' % token}
+    graph_url = 'https://api.github.com/graphql'
+    count = 0
+    for item in data:
+
+        #if count <7:
+            #count += 1
+        contributors_url = str(item['contributors_url'])
+        print("contributors_url:", contributors_url)
+        name = item['name']
+        query = '{ repository(owner: "Virtual-labs", name: \"%s\") { issues(states: CLOSED) { totalCount } } }' % name
+        query_json = {"query":query}
+        print(query_json)
+        r = requests.post(url=graph_url, json=query_json, headers=headers)#replace r with response
+        issue_data = json.loads(r.text)
+        closed_issue_count = issue_data['data']['repository']['issues']['totalCount']
+        response2 = requests.get(contributors_url,auth=(uname,passwd))
+        commits = 0
+        num_contributors = 0
+        if response2.text != '':
+            data2 = json.loads(response2.text)
+        for contributor in data2:
+            commits += int(contributor['contributions'])
+            num_contributors += 1
+
+        if num_contributors!=0 and commits != 0:
+            jdata = {
+                    'id' : j+1,
+                    'name' : name,
+                    'contributors': num_contributors,
+                    'numberofcommits' : commits,
+                    'closedIssueCount':closed_issue_count
+            }
+            json_str = json.dumps(jdata)
+            repoCommitDevCIssueData.insert(j, json.loads(json_str))
+
+            j += 1
+
+    print("repoCommitDevCIssueData : ", repoCommitDevCIssueData)
+    return repoCommitDevCIssueData
+
+
+jsondata = getRepoCommitDevCIssueDataAsJSON()
+
+commitar = []
+commitsort = sorted(jsondata, key=lambda x: x['numberofcommits'], reverse=True)
+for i in range(0,5):
+    if 'id' in commitsort[i]:
+        try:
+            del commitsort[i]['id']
+        except KeyError:
+            pass
+    commitar.insert(i,commitsort[i])
+
+print("commitar in repo:")
+print(commitar)
+devar =[]
+commitsort = sorted(jsondata, key=lambda x: x['contributors'], reverse=True)
+for i in range(0,5):
+    if 'id' in commitsort[i]:
+        try:
+            del commitsort[i]['id']
+        except KeyError:
+            pass
+    devar.insert(i,commitsort[i])
+
+closedissuear =[]
+commitsort = sorted(jsondata, key=lambda x: x['closedIssueCount'], reverse=True)
+for i in range(0,5):
+    if 'id' in commitsort[i]:
+        try:
+            del commitsort[i]['id']
+        except KeyError:
+            pass
+    closedissuear.insert(i,commitsort[i])
+
+jsondata = getRepoCommitDevCIssueDataAsJSON()
+
+commitsort = sorted(jsondata, key=lambda x: x['numberofcommits'], reverse=True)
+devsort = sorted(jsondata, key=lambda x: x['contributors'], reverse=True)
+closedissuesort = sorted(jsondata, key=lambda x: x['closedIssueCount'], reverse=True)
+
+#+END_SRC
+** Getting data related to number of open issues in each repository as JSON
+*** implementation
+#+NAME: getrepoissueasjson
+#+BEGIN_SRC python
+def getRepoIssueDataAsJSON():
+    repoIssueData = []
+    data = getdata()
+    j=0
+    for item in data:
+        issues = int(item['open_issues'])
+        if issues != 0:
+            name = item['name']
+            jdata = {
+                    'reponame' : name,
+                    'name' : j+1,
+                    'numberofissues' : issues
+            }
+            json_str = json.dumps(jdata)
+            repoIssueData.insert(j, json.loads(json_str))
+            j += 1
+    print("repoIssueData : ", repoIssueData)
+    return repoIssueData
+#+END_SRC
+* Infra                                                         :boilerplate:
+
+
+** sources
+*** Imports
+#+NAME: imports_for_sources
+#+BEGIN_SRC python
+from flask import Flask, flash, redirect, render_template, request, session, abort
+import os
+import json
+import requests
+import html
+from repository import getReposHistoryData
+from repository import getRepoLanguageData
+from repository import getRepoLanguageDataAsJSON
+from repository import getRepoDataAsJSON
+from repository import getRepoCommitDevCIssueDataAsJSON
+from repository import getRepoIssueDataAsJSON
+from repository import commitsort, closedissuesort, devsort, commitar, devar, closedissuear
+
+#+END_SRC
+** sources_2
+*** imports_2
+#+NAME: imports_2_for_sources
+#+BEGIN_SRC python
+import time
+import datetime
+import requests
+import json
+import html
+from requests.auth import HTTPBasicAuth
+#+END_SRC
+
+
+
+
+
+
+
+* Tangle                                                        :boilerplate:
+
+** sources
+#+BEGIN_SRC python :tangle virtualabs.py :eval no :noweb yes
+<<imports_for_sources>>
+<<serve_template>>
+<<ind>>
+<<d3lang>>
+<<d3rep>>
+<<comts>>
+<<issues>>
+<<closedissus>>
+<<develope>>
+<<topcommits>>
+<<topdevelopers>>
+<<topclosedissues>>
+<<runapp>>
+#+END_SRC
+
+
+
+#+BEGIN_SRC python :tangle repository.py :eval no :noweb yes
+<<imports_2_for_sources>>
+<<authenticate>>
+<<getdata>>
+<<getyearofRepo>>
+<<getcurryear>>
+<<makearray>>
+<<getrepohistory>>
+<<getrepolang>>
+<<getrepolangasjson>>
+<<getrepodataasjson>>
+<<getrepocommitdevissuedataasjson>>
+<<getrepoissueasjson>>
+#+END_SRC
